@@ -1,3 +1,5 @@
+import functools
+
 class Event:
     def __init__(self, message):
         self.message = message
@@ -19,8 +21,8 @@ class PlayerEvent(Event):
 class PlayerMoveEvent(PlayerEvent):
     def __init__(self, player, initial, final, teleport=False):
         super().__init__(player)
-        self.begin = initial
-        self.end = final
+        self.initial = initial
+        self.final = final
         self.teleport = teleport
 
 class TurnEnd(Event):
@@ -36,10 +38,10 @@ class EventDispatcher:
         self.handlers = {}
 
     def add_handler(self, event, handler):
-        if not isinstance(handler, list):
+        if not hasattr(handler, "__iter__"):
             handler = [handler]
 
-        if not isinstance(event, list):
+        if not hasattr(event, "__iter__"):
             event = [event]
 
         # Event is root object of all events, collapse to avoid duplication
@@ -80,3 +82,41 @@ class EventDispatcher:
             handler(obj)
 
         return self
+
+def bindhandlers(dispatcher_attribute):
+    """
+    Class decorator.
+
+    Looks for methods decorated with "listen" and adds the method as
+    an event handler for the instance's EventDispatcher.
+
+    dispatcher_attribute: Name of the class' EventDispatcher attribute
+    """
+
+    def wrapper(cls):
+        @functools.wraps(cls)
+        def create(*args, **kwargs):
+            instance = cls(*args, **kwargs)
+
+            # Check for any methods decorated with "eventhandler"
+            # If so, add the method as an event handler with the associated event
+            for fname in dir(instance):
+                func = getattr(instance, fname)
+
+                if not callable(func):
+                    continue
+
+                # walrus (:3 っ)っ ;)
+                if event := getattr(func, "_event", None):
+                    instance.events |= event, func
+
+            return instance
+        return create
+    return wrapper
+
+def listen(*events):
+    def handler(func):
+        setattr(func, "_event", events)
+        return func
+    
+    return handler
