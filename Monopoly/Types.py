@@ -35,19 +35,16 @@ class LootTable:
 class Card:
     @staticmethod
     def execute(game, player, card):
-        text = game[Card.text][card]
         script = game[Card.script][card]
 
         context = {"player": player}
         game.execute(script, context=context)
 
-        variables = re.findall("(?<=\$)(\w+)", text)
+        tokens = game.monoscript.tokenize(game[Card.text][card])
+        game.monoscript.bindTokens(tokens, context)
+        text = " ".join(tokens)
 
-        for var in variables:
-            if var in context:
-                text = text.replace(f"${var}", game[Components.TEXT][context[var]])
-
-        print(text)
+        return text
 
 @Monopoly.setassociation(
     (Components.TEXT, "name"),
