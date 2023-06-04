@@ -100,6 +100,11 @@ class Monoscript:
                     raise ValueError(f"[Monoscript]: (too few args) expected tile entity id")
 
                 tile = rest[0]
+
+                if isinstance(tile, str):
+                    selector = Selector.parse(tile)
+                    tile = self.game.select(selector)[0]
+
                 if not isinstance(tile, int):
                     raise TypeError(f"[Monoscript]: (invalid type) invalid tile entity {tile!r}")
                 elif tile not in self.game.tiles:
@@ -182,7 +187,7 @@ class Monoscript:
                 value = context[varName]
                 tokens[i] = value
 
-                if not accessor:
+                if not value or not accessor:
                     continue
 
                 field, *path = accessor.split(".")
