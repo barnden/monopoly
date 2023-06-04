@@ -16,7 +16,6 @@
             --board-border-radius: 12px;
         }
 
-
         html,
         body {
             padding: 0;
@@ -30,7 +29,9 @@
 
         #board {
             display: grid;
-            grid-template-areas: "corner0 top corner1" "left center right" "corner3 bottom corner2";
+            grid-template-areas: "corner0 top    corner1"
+                                 "left    center right"
+                                 "corner3 bottom corner2";
             height: fit-content;
             width: fit-content;
 
@@ -199,7 +200,7 @@
             }
         }
 
-        class JailTeleport extends Tile {
+        class Jailmove extends Tile {
             constructor() {
                 super("Go to Jail")
             }
@@ -284,7 +285,7 @@
             new Company("Water", 150),
             new Property("Yokohama", 280),
             new Property("Tokyo", 280),
-            new JailTeleport(),
+            new Jailmove(),
             new Property("Liverpool", 300),
             new Property("Manchester", 300),
             new Treasure(),
