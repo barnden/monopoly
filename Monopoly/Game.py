@@ -3,43 +3,63 @@ import re
 from random import choice
 from functools import reduce
 import operator
+from typing import List
 
-class Game:
+from .ECS import ECS
+from .Event import PlayerMoveEvent, EventDispatcher, bindhandlers, listen
+from .Monoscript import Monoscript
+
+@bindhandlers("events")
+class Game(object):
     def __init__(self):
-        from Monopoly import ECS, EventDispatcher, Monoscript
-
         self.ecs = ECS()
         self.events = EventDispatcher()
         self.players = []
         self.monoscript = Monoscript(self)
 
-        self.register_event_handlers()
+    @listen(PlayerMoveEvent)
+    def on_player_move(self, event: PlayerMoveEvent):
+        from .Types import ActionTile
 
-    def register_event_handlers(self):
-        from Monopoly import PlayerMoveEvent
+        if not event.teleport:
+            m = len(self.tiles)
+            distance = self.distance(event.initial, event.final)
 
-        self.events |= PlayerMoveEvent, [self.on_player_move]
+            # Trigger "pass" event
+            for i in range(1, distance):
+                tile = self.tiles[(event.initial + i) % m]
 
-    def on_player_move(self, event):
-        print(event)
-        pass
+                if ActionTile.mask == self.ecs.entities[tile].mask:
+                    script = self[ActionTile.events][tile]
+
+                    if "pass" in script:
+                        self.execute(script["pass"], context={"player": event.player})
+
+        tile = self.tiles[event.final]
+        if ActionTile.mask == self.ecs.entities[tile].mask:
+            script = self[ActionTile.events][tile]
+
+            if "land" in script:
+                self.execute(script["land"], context={"player": event.player})
 
     def execute(self, *args, **kwargs):
         self.monoscript.execute(*args, **kwargs)
 
-    def load_from_file(self, file="./board.json"):
+    def load_from_file(self, file: str="./board.json"):
+        # Load a board object from JSON
+
         with open(file, "rb") as data:
             board = json.load(data)
 
         self.load(board)
 
     def load(self, board):
+        # Initialize a game with a board object
         from Monopoly import Components, Tile, LootTable, Card, Industry, Group
 
         ecs = self.ecs
 
         def process_tile(data):
-
             if data["type"] == "Chest":
                 for table in self.lootTables:
                     name = self.ecs[Components.TEXT][table]
@@ -94,18 +114,20 @@ class Game:
         return eid
     
     @staticmethod
-    def access(path, obj, default=None):
+    def access(path: str | list, obj, default=None):
         if isinstance(path, str):
             path = path.split(".")
 
         if not isinstance(path, list) or len(path) == 0:
             return default
+
         path = map(lambda x: x if not x.isnumeric() else int(x), path)
         return reduce(operator.getitem, path, obj)
 
     def select(self, selectors):
-        from Monopoly import Components
-
+        """
+        Given a list of selectors
+        """
         if not self.ecs.classes.keys() & selectors.keys():
             return None
 
@@ -125,7 +147,7 @@ class Game:
                 tid, *path = field.split('.')
                 tid = getattr(cls, tid, None)
 
-                if not tid:
+                if tid is None:
                     return False
                 
                 lhs = self[tid][obj]
@@ -155,6 +177,7 @@ class Game:
         return None
 
     def random(self, selectors):
+        # Find all tiles matching the provided selectors, then choose one at random
         entities = self.select(selectors)
 
         if isinstance(entities, list):
@@ -162,35 +185,32 @@ class Game:
 
         return None
 
-    def distance(self, initial, final):
+    def distance(self, initial: int, final: int):
         # Returns the distance in the forward direction
         m = len(self.tiles)
 
-        initial %= m
-        final %= m
+        return (final - initial) % m
 
-        return (m - (final - initial) % m) % (m + 1)
-
-    def distance2(self, initial, final):
+    def distance2(self, initial: int, final: int):
         # Returns the shortest distance in either the reverse or forward
         m = len(self.tiles)
         diff = (initial - final) % m
 
         return min(diff, m - diff)
 
-    def construct(self, eid):
-        from Monopoly import Components, Entity
+    def construct(self, eid: int):
+        from Monopoly import Entity
 
         # Construct an object for an entity from its associated components
         # Used for debugging purposes
 
-        if not eid:
+        if eid is None:
             return None
 
         mask = self.ecs.entities[eid].mask
         clazz = self.ecs.masks[mask]
 
-        if not clazz:
+        if clazz is None:
             raise TypeError(f"Failed to resolve Python type association for entity {eid}.")
 
         obj = Entity(eid, self.ecs.entities[eid].mask)
