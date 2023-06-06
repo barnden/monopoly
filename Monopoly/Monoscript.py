@@ -1,5 +1,5 @@
 import re
-from typing import Any
+from collections import ChainMap
 
 class Selector:
     @staticmethod
@@ -47,7 +47,7 @@ class Selector:
         return { type: attrs }
 
 class Monoscript:
-    keywords = ["balance", "move", "trigger", "jail", "random", "log", "transaction"]
+    keywords = ["balance", "move", "jail", "random", "log", "transaction"]
 
     def __init__(self, game):
         self.game = game
@@ -73,13 +73,12 @@ class Monoscript:
         else:
             delta = amount
 
-        delta = int(delta)
         if mode == "sub":
             delta *= -1
         elif mode != "add":
             raise ValueError(f"[Monoscript]: move unknown mode {mode!r}")
 
-        Player.update_balance(self.game, eid, current + delta)
+        Player.update_balance(self.game, eid, current + int(delta))
 
     def move(self, args, context={}):
         from Monopoly import Player, Selector
@@ -96,7 +95,7 @@ class Monoscript:
 
         match mode:
             case "to":
-                if len(rest) == 0:
+                if not rest:
                     raise ValueError(f"[Monoscript]: (too few args) expected tile entity id")
 
                 tile = rest[0]
@@ -112,34 +111,25 @@ class Monoscript:
 
                 Player.move(self.game, eid, self.game.tiles.index(tile), instant)
 
-            case "near":
-                if len(rest) == 0:
+            case "near" | "next":
+                # Near goes to nearest tile forward or backward, next goes to the nearest forward
+
+                if not rest:
                     raise ValueError(f"[Monoscript]: (too few args) expected tile selector")
 
-                selector = Selector.parse(rest[0])
-                tiles = self.game.select(selector)
-
-                if len(tiles) == 0:
-                    return
+                selectors = ChainMap(*[Selector.parse(token) for token in rest])
 
                 current = self.game[Player.position][eid]
-                locations = [self.game.tiles.index(tile) for tile in tiles]
-                distances = [self.game.distance2(current, position) for position in locations]
-                target = locations[distances.index(min(distances))]
+                forward = mode == "next"
 
-                Player.move(self.game, eid, target, instant)
+                tile = self.game.nearest(selectors, current, forward)
 
-            case "next":
-                if len(rest) == 0:
-                    raise ValueError(f"[Monoscript]: (too few args) expected tile selector")
-
-                selector = Selector.parse(rest[0])
+                if tile:
+                    position, _ = tile
+                    Player.move(self.game, eid, position, instant)
 
             case _:
                 raise ValueError(f"[Monoscript]: move unknown mode {mode!r}")
-
-    def trigger(self, args, context={}):
-        pass
 
     def jail(self, args, context={}):
         from Monopoly import Player
@@ -213,10 +203,7 @@ class Monoscript:
         tokens = Monoscript.tokenize(script)
         self.bindTokens(tokens, context)
 
-        handler = self.assign
-        if tokens[0] in Monoscript.keywords:
-            handler = getattr(self, tokens[0])
-
+        handler = getattr(self, tokens[0], self.assign)
         handler(args=tokens, context=context)
 
         return context

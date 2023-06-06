@@ -101,6 +101,8 @@ class BuyableTile(Tile):
     @staticmethod
     def buy(game, player, tile):
         # Check if not already owned
+        from .Event import PropertyPurchaseEvent
+
         owner = game[BuyableTile.owner][tile]
 
         if owner:
@@ -110,9 +112,11 @@ class BuyableTile(Tile):
         balance = game[Player.balance][player]
 
         # Check if player's balance is greater than or equal to the price of the plot
-        if balance >= price["plot"]:
-            game[Player.balance][player] -= price["plot"]
+        if balance >= price:
+            game[Player.balance][player] -= price
             game[BuyableTile.owner][tile] = player
+
+            game.events += PropertyPurchaseEvent(player, tile)
 
             return True
 
@@ -169,12 +173,12 @@ class CompanyTile(BuyableTile):
 class PropertyTile(BuyableTile):
     @staticmethod
     def upgrade(game, player, tile):
-        if game[Components.OWNER, tile] != player:
+        if game[PropertyTile.owner][tile] != player:
             return False
 
-        price = game[Components.PRICE, tile]["house"]
-        level = game[Components.DEVELOPMENT, tile]
-        maxLevel = len(game[Components.LIST, tile]) - 1
+        price = game[PropertyTile.price][tile]["house"]
+        level = game[PropertyTile.level][tile]
+        maxLevel = len(game[PropertyTile.rent][tile]) - 1
 
 
         if type(price) == list:
@@ -183,7 +187,7 @@ class PropertyTile(BuyableTile):
         if level >= maxLevel:
             return False
 
-        balance = game[Components.BALANCE, player]
+        balance = game[Player.balance][player]
 
         if balance >= price:
             game[Components.BALANCE, player] -= price

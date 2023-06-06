@@ -25,6 +25,11 @@ class PlayerMoveEvent(PlayerEvent):
         self.final = final
         self.teleport = teleport
 
+class PropertyPurchaseEvent(PlayerEvent):
+    def __init__(self, player, tile):
+        super().__init__(player)
+        self.tile = tile
+
 class TurnEnd(Event):
     def __init__(self, player):
         self.player = player
@@ -83,36 +88,31 @@ class EventDispatcher:
 
         return self
 
-def bindhandlers(dispatcher_attribute):
+def bindlisteners(cls):
     """
     Class decorator.
 
     Looks for methods decorated with "listen" and adds the method as
     an event handler for the instance's EventDispatcher.
-
-    dispatcher_attribute: Name of the class' EventDispatcher attribute
     """
+    @functools.wraps(cls)
+    def create(*args, **kwargs):
+        instance = cls(*args, **kwargs)
 
-    def wrapper(cls):
-        @functools.wraps(cls)
-        def create(*args, **kwargs):
-            instance = cls(*args, **kwargs)
+        # Check for any methods decorated with "eventhandler"
+        # If so, add the method as an event handler with the associated event
+        for fname in dir(instance):
+            func = getattr(instance, fname)
 
-            # Check for any methods decorated with "eventhandler"
-            # If so, add the method as an event handler with the associated event
-            for fname in dir(instance):
-                func = getattr(instance, fname)
+            if not callable(func):
+                continue
 
-                if not callable(func):
-                    continue
+            # walrus (:3 っ)っ ;)
+            if event := getattr(func, "_event", None):
+                instance.events |= event, func
 
-                # walrus (:3 っ)っ ;)
-                if event := getattr(func, "_event", None):
-                    instance.events |= event, func
-
-            return instance
-        return create
-    return wrapper
+        return instance
+    return create
 
 def listen(*events):
     def handler(func):

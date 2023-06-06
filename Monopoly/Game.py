@@ -3,23 +3,39 @@ import re
 from random import choice
 from functools import reduce
 import operator
-from typing import List
+import random
 
 from .ECS import ECS
-from .Event import PlayerMoveEvent, EventDispatcher, bindhandlers, listen
+from .Event import PlayerMoveEvent, PropertyPurchaseEvent, EventDispatcher, bindlisteners, listen
 from .Monoscript import Monoscript
 
-@bindhandlers("events")
+@bindlisteners
 class Game(object):
     def __init__(self):
         self.ecs = ECS()
         self.events = EventDispatcher()
-        self.players = []
         self.monoscript = Monoscript(self)
+        self.players = []
+        self.stats = {}
+        self.activePlayer = None
+
+    def shuffle(self):
+        random.shuffle(self.players)
+
+    def roll(self, n=2, s=6):
+        return (random.randint(1, s) for _ in range(n))
+
+    @listen(PropertyPurchaseEvent)
+    def on_purchase(self, event: PropertyPurchaseEvent):
+        from .Types import BuyableTile, Player
+
+        tile = self[BuyableTile.label][event.tile]
+        player = self[Player.name][event.player]
+        print(f"{tile} purchased by {player}")
 
     @listen(PlayerMoveEvent)
     def on_player_move(self, event: PlayerMoveEvent):
-        from .Types import ActionTile
+        from .Types import ActionTile, Tile, Player
 
         if not event.teleport:
             m = len(self.tiles)
@@ -42,12 +58,13 @@ class Game(object):
             if "land" in script:
                 self.execute(script["land"], context={"player": event.player})
 
+        print(f"player {self[Player.name][event.player]} landed on {self[Tile.label][tile]}")
+
     def execute(self, *args, **kwargs):
         self.monoscript.execute(*args, **kwargs)
 
     def load_from_file(self, file: str="./board.json"):
         # Load a board object from JSON
-
         with open(file, "rb") as data:
             board = json.load(data)
 
@@ -57,12 +74,10 @@ class Game(object):
         # Initialize a game with a board object
         from Monopoly import Components, Tile, LootTable, Card, Industry, Group
 
-        ecs = self.ecs
-
         def process_tile(data):
             if data["type"] == "Chest":
                 for table in self.lootTables:
-                    name = self.ecs[Components.TEXT][table]
+                    name = self[Components.TEXT][table]
 
                     if name == data["table"]:
                         data["table"] = table
@@ -80,7 +95,7 @@ class Game(object):
 
         for prop in properties:
             name, process = prop
-            setattr(self, name, [ecs.create_entity(*process(data)) for data in board[name]])
+            setattr(self, name, [self.ecs.create_entity(*process(data)) for data in board[name]])
 
         properties = board["properties"]
 
@@ -112,7 +127,7 @@ class Game(object):
         self.players.append(eid)
 
         return eid
-    
+
     @staticmethod
     def access(path: str | list, obj, default=None):
         if isinstance(path, str):
@@ -125,9 +140,6 @@ class Game(object):
         return reduce(operator.getitem, path, obj)
 
     def select(self, selectors):
-        """
-        Given a list of selectors
-        """
         if not self.ecs.classes.keys() & selectors.keys():
             return None
 
@@ -149,7 +161,7 @@ class Game(object):
 
                 if tid is None:
                     return False
-                
+
                 lhs = self[tid][obj]
                 lhs = Game.access(path, lhs, lhs)
 
@@ -175,6 +187,24 @@ class Game(object):
             return entities
 
         return None
+    
+    def nearest(self, selectors, position, forward=True):
+        # Get the nearest tile to a given position matching a selector
+        # Returns a tuple of (position, eid) where position is the index
+        #   of the entity inside the tiles list, and eid is the entity id.
+        tiles = self.select(selectors)
+
+        if not tiles:
+            return None
+
+        metric = self.distance if forward else self.distance2
+        positions = [self.tiles.index(tile) for tile in tiles]
+        distances = [metric(position, pos) for pos in positions]
+
+        nearest = positions[distances.index(min(distances))]
+
+        return (nearest, self.tiles[nearest])
+
 
     def random(self, selectors):
         # Find all tiles matching the provided selectors, then choose one at random
