@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -149,192 +148,64 @@
             content: "$"
         }
 
-        /* #board .die {
-            display: inline-block;
+        #board .tile {
+            position: relative;
+        }
 
-            border: 2px solid black;
-            background: #CCC;
+        #board .tile.Property h1 {
+            width: 100%;
+        }
 
-            height: 4rem;
-            width: 4rem;
-
-            border-radius: 6px;
-        } */
+        {%- for group in groups %}
+        #board .Property.group-{{ group | replace(" ", "") }} {
+            background: {{ groups[group].color }};
+        }
+        {% endfor -%}
     </style>
 </head>
-
 <body>
     <div id="board">
-        <div id="corner0"></div>
-        <div id="top"></div>
-        <div id="corner1"></div>
-        <div id="left"></div>
+        {%- set N = properties.dimension -%}
+
+        <div id="corner0">
+            {%- set tile = tiles[0] -%}
+            <div class="tile {{ tile.type }}"><h1>{{ tile.label }}</h1></div>
+        </div>
+        <div id="top">
+            {% for tile in tiles[1:N-1] %}
+            <div class="tile {{ tile.type }} {{ tile.type == 'Property' and 'group-' + tile.group | replace(' ', '')}}"><h1>{{ tile.label }}</h1></div>
+            {% endfor %}
+        </div>
+        <div id="corner1">
+            {%- set tile = tiles[N-1] -%}
+            <div class="tile {{ tile.type }}"><h1>{{ tile.label }}</h1></div>
+        </div>
+        <div id="left">
+            {% for tile in tiles[3*N-2:] %}
+                <div class="tile {{ tile.type }} {{ tile.type == 'Property' and 'group-' + tile.group | replace(' ', '')}}"><h1>{{ tile.label }}</h1></div>
+            {% endfor %}
+        </div>
         <div id="center">
             <h1>Generic Monopoly</h1>
             <div class="die die3"></div>
             <div class="die die6"></div>
         </div>
-        <div id="right"></div>
-        <div id="corner2"></div>
-        <div id="bottom"></div>
-        <div id="corner3"></div>
+        <div id="right">
+            {% for tile in tiles[N:2*N-2] %}
+                <div class="tile {{ tile.type }} {{ tile.type == 'Property' and 'group-' + tile.group | replace(' ', '')}}"><h1>{{ tile.label }}</h1></div>
+            {% endfor %}
+        </div>
+        <div id="corner2">
+            {%- set tile = tiles[2*N-2] -%}
+            <div class="tile {{ tile.type }}"><h1>{{ tile.label }}</h1></div>
+        </div>
+        <div id="bottom">
+            {% for tile in tiles[2*N-1:3*N-3] %}
+                <div class="tile {{ tile.type }} {{ tile.type == 'Property' and 'group-' + tile.group | replace(' ', '')}}"><h1>{{ tile.label }}</h1></div>
+            {% endfor %}
+        </div>
+        {%- set tile = tiles[1-N] -%}
+        <div id="corner3"><div class="tile {{ tile.type }}"><h1>{{ tile.label }}</h1></div></div>
     </div>
-    <script>
-        class Tile {
-            constructor(name, buyable = false) {
-                this.name = name
-                this.buyable = buyable
-            }
-        }
-
-        class Property extends Tile {
-            constructor(name, price) {
-                super(name, true)
-                this.price = price
-            }
-        }
-
-        class Go extends Tile {
-            constructor() {
-                super("Go")
-            }
-        }
-
-        class Jailmove extends Tile {
-            constructor() {
-                super("Go to Jail")
-            }
-        }
-
-        class Vacation extends Tile {
-            constructor() {
-                super("Vacation")
-            }
-        }
-
-        class Jail extends Tile {
-            constructor() {
-                super("Jail")
-            }
-        }
-        class Treasure extends Tile {
-            constructor() {
-                super("Treasure")
-            }
-        }
-        class Tax extends Tile {
-            constructor() {
-                super("Tax")
-            }
-        }
-
-        class Airport extends Tile {
-            constructor(name, price) {
-                super(`${name} Airport`, true)
-                this.price = price
-            }
-        }
-
-        class Surprise extends Tile {
-            constructor() {
-                super("Surprise")
-            }
-        }
-
-        class Company extends Tile {
-            constructor(name, price) {
-                super(`${name} Company`, true)
-                this.price = price
-            }
-        }
-
-        const tiles = [
-            new Go(),
-            new Property("Salvador", 60),
-            new Treasure(),
-            new Property("Rio", 60),
-            new Tax(),
-            new Property("Tel Aviv", 100),
-            new Airport("TLV", 200),
-            new Property("Haifa", 100),
-            new Property("Jerusalem", 100),
-            new Surprise(),
-            new Property("Mumbai", 120),
-            new Property("New Delhi", 130),
-            new Jail(),
-            new Property("Venice", 140),
-            new Property("Bologna", 140),
-            new Company("Electric", 150),
-            new Property("Milan", 140),
-            new Property("Rome", 140),
-            new Airport("MUC", 200),
-            new Property("Frankfurt", 180),
-            new Treasure(),
-            new Property("Munich", 180),
-            new Company("Gas", 150),
-            new Property("Berlin", 200),
-            new Vacation(),
-            new Property("Shenzhen", 220),
-            new Surprise(),
-            new Property("Beijing", 220),
-            new Treasure(),
-            new Property("Shanghai", 240),
-            new Airport("CDG", 200),
-            new Property("Toulouse", 260),
-            new Property("Paris", 260),
-            new Company("Water", 150),
-            new Property("Yokohama", 280),
-            new Property("Tokyo", 280),
-            new Jailmove(),
-            new Property("Liverpool", 300),
-            new Property("Manchester", 300),
-            new Treasure(),
-            new Property("Birmingham", 320),
-            new Property("London", 320),
-            new Airport("JFK", 200),
-            new Property("Los Angeles", 350),
-            new Surprise(),
-            new Property("San Francisco", 360),
-            new Tax(),
-            new Property("New York", 400)
-        ]
-
-        const boardDirection = ["top", "right", "bottom", "left"]
-
-        const board = {
-            top: document.getElementById("top"),
-            right: document.getElementById("right"),
-            bottom: document.getElementById("bottom"),
-            left: document.getElementById("left"),
-        }
-        // 13 x 13
-        const BOARD_LENGTH = 13
-        for (let i = 0; i < tiles.length; i++) {
-            const tile = tiles[i]
-            let corner = i % (BOARD_LENGTH - 1) == 0
-            let j = ~~(i / (BOARD_LENGTH - 1))
-            let parent = board[boardDirection[j]]
-
-            if (corner)
-                parent = document.getElementById(`corner${j}`)
-
-            const element = document.createElement("div")
-            const title = document.createElement("h1")
-            title.innerText = tile.name
-
-            if (tile.buyable && tile.price) {
-                const price = document.createElement("h2")
-                price.classList.add("price")
-                price.innerText = tile.price
-                element.append(price)
-            }
-
-            element.classList.add("tile")
-
-            element.prepend(title)
-            parent.append(element)
-        }
-    </script>
 </body>
-
 </html>

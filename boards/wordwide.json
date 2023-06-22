@@ -1,0 +1,548 @@
+{
+    "properties": {
+        "name": "Mr. Worldwide",
+        "dimension": 13
+    },
+    "lootTables": [
+        {
+            "name": "chest",
+            "data": {
+                "cards": [0, 1, 2],
+                "weights": [10, 10, 5]
+            }
+        },
+        {
+            "name": "chance",
+            "data": {
+                "cards": [2, 3, 4, 5, 6, 7],
+                "weights": [5, 1000, 10, 10, 5, 5]
+            }
+        }
+    ],
+    "cards": [
+        {
+            "text": "Phone broke. -$50",
+            "script": [
+                "balance sub $player 50"
+            ]
+        },
+        {
+            "text": "Gift. +$100",
+            "script": [
+                "balance add $player 100"
+            ]
+        },
+        {
+            "text": "Go To Jail",
+            "script": [
+                "jail"
+            ]
+        },
+        {
+            "text": "Free trip to $spot[label]",
+            "script": [
+                "spot = random PropertyTile",
+                "move $player to $spot"
+            ]
+        },
+        {
+            "text": "Go To Nearest Airport",
+            "script": [
+                "move $player near CompanyTile[industry=airport]"
+            ]
+        },
+        {
+            "text": "Go To Nearest Company",
+            "script": [
+                "move $player near CompanyTile[industry=utility]"
+            ]
+        },
+        {
+            "text": "Go To Start. Collect.",
+            "script": [
+                "move $player to ActionTile[label=Go]"
+            ]
+        },
+        {
+            "text": "Go To Vacation",
+            "script": [
+                "move $player to ActionTile[label=Vacation]"
+            ]
+        }
+    ],
+    "industries": [
+        {
+            "name": "airport",
+            "method": "flat",
+            "base": 25,
+            "modifier": [1, 2, 4, 8]
+        },
+        {
+            "name": "utility",
+            "method": "roll",
+            "base": 0,
+            "modifier": [1, 2, 4, 8]
+        }
+    ],
+    "groups": [
+        {
+            "label": "Brazil",
+            "color": "#009739"
+        },
+        {
+            "label": "India",
+            "color": "#FF671F"
+        },
+        {
+            "label": "Italy",
+            "color": "#008C45"
+        },
+        {
+            "label": "Germany",
+            "color": "#FFCC00"
+        },
+        {
+            "label": "China",
+            "color": "#C8102E"
+        },
+        {
+            "label": "France",
+            "color": "#002654"
+        },
+        {
+            "label": "Japan",
+            "color": "#BC002D"
+        },
+        {
+            "label": "United Kingdom",
+            "color": "#012169"
+        },
+        {
+            "label": "United States",
+            "color": "#B31942"
+        },
+        {
+            "label": "Israel",
+            "color": "#005EB8"
+        }
+    ],
+    "tiles": [
+        {
+            "type": "Action",
+            "label": "Go",
+            "events": {
+                "pass": [
+                    "balance add $player 200",
+                    "log $player[name] passed go"
+                ],
+                "land": [
+                    "balance sub $player 300",
+                    "log $player[name] landed on go"
+                ]
+            }
+        },
+        {
+            "type": "Property",
+            "label": "Salvador",
+            "group": "Brazil",
+            "price": {
+                "plot": 60,
+                "house": 200
+            },
+            "rent": [2, 10, 30, 90, 160, 250]
+        },
+        {
+            "type": "Chest",
+            "label": "Treasure",
+            "table": "chest"
+        },
+        {
+            "type": "Property",
+            "label": "Rio",
+            "group": "Brazil",
+            "price": {
+                "plot": 60,
+                "house": 50
+            },
+            "rent": [6, 30, 90, 270, 400, 550]
+        },
+        {
+            "type": "Action",
+            "label": "Income Tax",
+            "events": {
+                "land": ["balance sub 10%"]
+            }
+        },
+        {
+            "type": "Property",
+            "label": "Tel Aviv",
+            "group": "Israel",
+            "price": {
+                "plot": 100,
+                "house": 50
+            },
+            "rent": [6, 30, 90, 270, 400, 550]
+        },
+        {
+            "type": "Company",
+            "label": "TLV Airport",
+            "industry": "airport",
+            "price": {
+                "plot": 200
+            }
+        },
+        {
+            "type": "Property",
+            "label": "Haifa",
+            "group": "Israel",
+            "price": {
+                "plot": 100,
+                "house": 50
+            },
+            "rent": [6, 30, 90, 270, 400, 550]
+        },
+        {
+            "type": "Property",
+            "label": "Jerusalem",
+            "group": "Israel",
+            "price": {
+                "plot": 110,
+                "house": 50
+            },
+            "rent": [8, 40, 100, 300, 450, 600]
+        },
+        {
+            "type": "Chest",
+            "label": "Surprise",
+            "table": "chance"
+        },
+        {
+            "type": "Property",
+            "label": "Mumbai",
+            "group": "India",
+            "price": {
+                "plot": 120,
+                "house": 100
+            },
+            "rent": [8, 45, 120, 350, 500, 650]
+        },
+        {
+            "type": "Property",
+            "label": "New Delhi",
+            "group": "India",
+            "price": {
+                "plot": 130,
+                "house": 100
+            },
+            "rent": [10, 45, 130, 400, 575, 700]
+        },
+        {
+            "type": "Tile",
+            "label": "Jail"
+        },
+        {
+            "type": "Property",
+            "label": "Venice",
+            "group": "Italy",
+            "price": {
+                "plot": 140,
+                "house": 100
+            },
+            "rent": [10, 50, 150, 450, 625, 750]
+        },
+        {
+            "type": "Property",
+            "label": "Bologna",
+            "group": "Italy",
+            "price": {
+                "plot": 140,
+                "house": 100
+            },
+            "rent": [10, 50, 150, 450, 625, 750]
+        },
+        {
+            "type": "Company",
+            "label": "Electric Company",
+            "industry": "utility",
+            "price": {
+                "plot": 150
+            }
+        },
+        {
+            "type": "Property",
+            "label": "Milan",
+            "group": "Italy",
+            "price": {
+                "plot": 160,
+                "house": 100
+            },
+            "rent": [12, 60, 180, 500, 700, 900]
+        },
+        {
+            "type": "Property",
+            "label": "Rome",
+            "group": "Italy",
+            "price": {
+                "plot": 160,
+                "house": 100
+            },
+            "rent": [12, 60, 180, 500, 700, 900]
+        },
+        {
+            "type": "Company",
+            "label": "MUC Airport",
+            "industry": "airport",
+            "price": {
+                "plot": 200
+            }
+        },
+        {
+            "type": "Property",
+            "label": "Frankfurt",
+            "group": "Germany",
+            "price": {
+                "plot": 180,
+                "house": 100
+            },
+            "rent": [14, 70, 200, 550, 750, 950]
+        },
+        {
+            "type": "Chest",
+            "label": "Treasure",
+            "table": "chest"
+        },
+        {
+            "type": "Property",
+            "label": "Munich",
+            "group": "Germany",
+            "price": {
+                "plot": 180,
+                "house": 100
+            },
+            "rent": [14, 70, 200, 550, 750, 950]
+        },
+        {
+            "type": "Company",
+            "label": "Gas Company",
+            "industry": "utility",
+            "price": {
+                "plot": 200
+            }
+        },
+        {
+            "type": "Property",
+            "label": "Berlin",
+            "group": "Germany",
+            "price": {
+                "plot": 200,
+                "house": 100
+            },
+            "rent": [16, 80, 220, 600, 800, 1000]
+        },
+        {
+            "type": "Action",
+            "label": "Vacation",
+            "events": {
+                "land": ["park"]
+            }
+        },
+        {
+            "type": "Property",
+            "label": "Shenzhen",
+            "group": "China",
+            "price": {
+                "plot": 220,
+                "house": 150
+            },
+            "rent": [18, 90, 250, 700, 875, 1050]
+        },
+        {
+            "type": "Chest",
+            "label": "Surprise",
+            "table": "chance"
+        },
+        {
+            "type": "Property",
+            "label": "Beijing",
+            "group": "China",
+            "price": {
+                "plot": 220,
+                "house": 150
+            },
+            "rent": [18, 90, 250, 700, 875, 1050]
+        },
+        {
+            "type": "Chest",
+            "label": "Treasure",
+            "table": "chest"
+        },
+        {
+            "type": "Property",
+            "label": "Shanghai",
+            "group": "China",
+            "price": {
+                "plot": 240,
+                "house": 150
+            },
+            "rent": [20, 100, 300, 750, 925, 1100]
+        },
+        {
+            "type": "Company",
+            "label": "CDG Airport",
+            "industry": "airport",
+            "price": {
+                "plot": 200
+            }
+        },
+        {
+            "type": "Property",
+            "label": "Toulouse",
+            "group": "France",
+            "price": {
+                "plot": 260,
+                "house": 150
+            },
+            "rent": [22, 110, 330, 800, 975, 1150]
+        },
+        {
+            "type": "Property",
+            "label": "Paris",
+            "group": "France",
+            "price": {
+                "plot": 260,
+                "house": 150
+            },
+            "rent": [22, 110, 330, 800, 975, 1150]
+        },
+        {
+            "type": "Company",
+            "label": "Water Company",
+            "industry": "utility",
+            "price": {
+                "plot": 200
+            }
+        },
+        {
+            "type": "Property",
+            "label": "Yokohama",
+            "group": "Japan",
+            "price": {
+                "plot": 280,
+                "house": 150
+            },
+            "rent": [24, 120, 360, 850, 1025, 1200]
+        },
+        {
+            "type": "Property",
+            "label": "Tokyo",
+            "group": "Japan",
+            "price": {
+                "plot": 280,
+                "house": 150
+            },
+            "rent": [24, 120, 360, 850, 1025, 1200]
+        },
+        {
+            "type": "Action",
+            "label": "Go To Jail",
+            "events": {
+                "land": ["jail $player"]
+            }
+        },
+        {
+            "type": "Property",
+            "label": "Liverpool",
+            "group": "United Kingdom",
+            "price": {
+                "plot": 300,
+                "house": 200
+            },
+            "rent": [26, 130, 390, 900, 1100, 1275]
+        },
+        {
+            "type": "Property",
+            "label": "Manchester",
+            "group": "United Kingdom",
+            "price": {
+                "plot": 300,
+                "house": 200
+            },
+            "rent": [26, 130, 390, 900, 1100, 1275]
+        },
+        {
+            "type": "Chest",
+            "label": "Treasure",
+            "table": "chest"
+        },
+        {
+            "type": "Property",
+            "label": "Birmingham",
+            "group": "United Kingdom",
+            "price": {
+                "plot": 320,
+                "house": 200
+            },
+            "rent": [28, 150, 450, 1000, 1200, 1400]
+        },
+        {
+            "type": "Property",
+            "label": "London",
+            "group": "United Kingdom",
+            "price": {
+                "plot": 320,
+                "house": 200
+            },
+            "rent": [28, 150, 450, 1000, 1200, 1400]
+        },
+        {
+            "type": "Company",
+            "label": "JFK Airport",
+            "industry": "airport",
+            "price": {
+                "plot": 200
+            }
+        },
+        {
+            "type": "Property",
+            "label": "Los Angeles",
+            "group": "United States",
+            "price": {
+                "plot": 350,
+                "house": 200
+            },
+            "rent": [35, 175, 500, 1100, 1300, 1500]
+        },
+        {
+            "type": "Chest",
+            "label": "Surprise",
+            "table": "chance"
+        },
+        {
+            "type": "Property",
+            "label": "San Francisco",
+            "group": "United States",
+            "price": {
+                "plot": 360,
+                "house": 200
+            },
+            "rent": [40, 180, 540, 1200, 1450, 1675]
+        },
+        {
+            "type": "Action",
+            "label": "Luxury Tax",
+            "events": {
+                "land": ["balance sub 75"]
+            }
+        },
+        {
+            "type": "Property",
+            "label": "New York",
+            "group": "United States",
+            "price": {
+                "plot": 400,
+                "house": 200
+            },
+            "rent": [50, 200, 600, 1400, 1700, 2000]
+        }
+    ]
+}

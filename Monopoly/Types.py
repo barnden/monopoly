@@ -1,77 +1,181 @@
-import Monopoly
-from enum import IntEnum
 from random import choices
-import re
 
-class Components(IntEnum):
-    TEXT = 0,
-    DATA = 1,
-    LIST = 2,
-    TYPE = 3,
-    OWNER = 5,
-    PRICE = 6,
-    POSITION = 7,
-    BALANCE = 8,
-    DEVELOPMENT = 9,
-    SCRIPT = 10
+class Entity:
+    def __str__(self):
+        return self.eid
 
+    def __hash__(self):
+        import uuid
+        return uuid.UUID(self.eid).int
 
-@Monopoly.setassociation(
-    (Components.TEXT, "name"),
-    (Components.DATA, "data")
-)
-class LootTable:
-    @staticmethod
-    def choice(game, table):
-        data = game[LootTable.data][table]
-        card = choices(population=data["cards"], weights=data["weights"], k=1)[0]
+class Player(Entity):
+    def __init__(self, name, data, balance=0, position=0):
+        self.name = name
+        self.data = data
+        self.balance = balance
+        self.position = position
+        self.debts = []
 
-        return game.cards[card]
+    def __repr__(self):
+        return f"Player(name={self.name}, balance={self.balance}, position={self.position})"
 
-@Monopoly.setassociation(
-    (Components.TEXT, "text"),
-    (Components.LIST, "script")
-)
-class Card:
-    @staticmethod
-    def execute(game, player, card):
-        script = game[Card.script][card]
+    def purchase(self, game, amount):
+        from .Event import PlayerBalanceUpdated
+        # Attempts to debit amount from player's balance
+        # If possible, do it and return True
+        # Otherwise, return False
 
+        if self.balance < amount:
+            return False
+
+        self.balance -= amount
+        game += PlayerBalanceUpdated(self, -amount)
+
+        return True
+
+    def credit(self, game, amount):
+        # Credits the player's balance
+        from .Event import PlayerBalanceUpdated
+
+        self.balance += amount
+
+        if len(self.debts):
+            for idx, (creditor, debt) in enumerate(self.debts):
+                # If credited amount < debt, deduct amount from debt and return
+                if amount < debt:
+                    self.debts[idx] = (creditor, debt - amount)
+
+                    if creditor:
+                        creditor.balance += amount
+
+                    break
+
+                self.debts[idx] = None
+
+                if creditor:
+                    creditor.balance += debt
+                amount -= debt
+
+            self.debts = [x for x in self.debts if x]
+
+        game += PlayerBalanceUpdated(self, amount)
+
+    def debit(self, game, creditor, amount):
+        from .Event import PlayerBalanceUpdated
+
+        if self.balance < amount:
+            # If debit exceeds balance, player owes the difference to the creditor
+            # In this case, subsequent credits to the player will go towards paying
+            # the debt back to the creditor before the player's balance itself
+
+            if self.balance > 0 and creditor:
+                creditor.balance += self.balance
+
+            self.debts.append((creditor, amount - max(0, self.balance)))
+        elif creditor:
+            creditor.balance += amount
+
+        # Debits whole amount from player's account
+        self.balance -= amount
+
+        game += PlayerBalanceUpdated(self, -amount)
+
+def associate(*association):
+    def wrapper(cls):
+        current = getattr(cls, "association", None)
+        _association = association
+
+        if current:
+            _association = current + association
+
+        setattr(cls, "association", _association)
+
+        return cls
+
+    return wrapper
+
+@associate("name", "data")
+class LootTable(Entity):
+    def __init__(self, name, data):
+        self.name = name
+        self.data = data
+
+    def choice(self):
+        card = choices(population=self.data["cards"], weights=self.data["weights"], k=1)[0]
+
+        return card
+    
+    def __repr__(self):
+        return f"{self.__class__.__name__}(name={self.name})"
+
+@associate("text", "script")
+class Card(Entity):
+    def __init__(self, text, script):
+        self.text = text
+        self.script = script
+
+    def execute(self, game, player):
         context = {"player": player}
-        game.execute(script, context=context)
+        game.execute(self.script, context=context)
 
-        tokens = game.monoscript.tokenize(game[Card.text][card])
+        tokens = game.monoscript.tokenize(self.text)
         game.monoscript.bindTokens(tokens, context)
         text = " ".join(tokens)
 
         return text
 
-@Monopoly.setassociation(
-    (Components.TEXT, "name"),
-    (Components.TYPE, "method"),
-    (Components.DATA, "base"),
-    (Components.LIST, "modifier")
-)
-class Industry:
-    pass
+    def __repr__(self):
+        return f"{self.__class__.__name__}(text={self.text})"
 
-@Monopoly.setassociation(
-    (Components.TEXT, "label")
-)
-class Group:
-    pass
+@associate("name", "method", "base", "modifier")
+class Industry(Entity):
+    def __init__(self, name, method, base, modifier):
+        self.name = name
+        self.method = method
+        self.base = base
+        self.modifier = modifier
 
-@Monopoly.setassociation(
-    (Components.TYPE, "type"),
-    (Components.TEXT, "label")
-)
-class Tile:
+@associate("label")
+class Group(Entity):
+    def __init__(self, label):
+        self.label = label
+
+class Meta(type):
+    @staticmethod
+    def get_root(T=None, bases=None):
+        if not bases or bases == (Entity,):
+            return T
+
+        for t in bases:
+            if (base := Meta.get_root(t, t.__bases__)) != None:
+                return base
+
+        return None
+
+    def __new__(cls, name, bases, attrs):
+        T = Meta.get_root(bases=bases)
+
+        def wrap(fn, base, derived):
+            def wrapper(*args, **kwargs):
+                base(*args, **kwargs)
+                derived(*args, **kwargs)
+
+            setattr(wrapper, "__name__", f"wrapper_{fn}")
+            return wrapper
+
+        if T:
+            intersect = (set(T.__dict__) & set(attrs)) - set(["__module__", "__init__"])
+
+            for fn in intersect:
+                attrs[fn] = wrap(fn, getattr(bases[0], fn, lambda: None), attrs.setdefault(fn, lambda: None))
+
+        return type.__new__(cls, name, bases, attrs)
+
+@associate("label", "events")
+class Tile(Entity, metaclass=Meta):
     @staticmethod
     def type_from_string(string):
         match string:
-            case "Action":
-                type = ActionTile
-
             case "Chest":
                 type = ChestTile
 
@@ -83,144 +187,119 @@ class Tile:
 
             case _:
                 type = Tile
+
         return type
 
-    @staticmethod
-    def onpass(game, player, tile):
-        return
+    def __init__(self, label, events={}):
+        self.label = label
+        self.events = events
 
-    @staticmethod
-    def onland(game, player, tile):
-        return
+    def __repr__(self):
+        return f"{self.__class__.__name__}(name={self.label})"
 
-@Monopoly.setassociation(
-    (Components.OWNER, "owner"),
-    (Components.PRICE, "price")
-)
+    def on_land(self, game, player):
+        if "land" not in self.events:
+            return
+
+        game.execute(self.events["land"], context={"player": player})
+
+    def on_pass(self, game, player):
+        if "pass" not in self.events:
+            return
+
+        game.execute(self.events["pass"], context={"player": player})
+
+@associate("price")
 class BuyableTile(Tile):
-    @staticmethod
-    def buy(game, player, tile):
-        # Check if not already owned
+    def __init__(self, label, price, owner=None, events={}):
+        super().__init__(label, events)
+
+        self.price = price
+        self.owner = owner
+
+    def buy(self, game, player):
         from .Event import PropertyPurchaseEvent
 
-        owner = game[BuyableTile.owner][tile]
-
-        if owner:
+        # Check if not already owned
+        if self.owner:
             return False
 
-        price = game[BuyableTile.price][tile]["plot"]
-        balance = game[Player.balance][player]
+        # Check that player has enough money
+        if player.balance < self.price:
+            return False
 
-        # Check if player's balance is greater than or equal to the price of the plot
-        if balance >= price:
-            game[Player.balance][player] -= price
-            game[BuyableTile.owner][tile] = player
+        player.balance -= self.price
+        self.owner = player
 
-            game.events += PropertyPurchaseEvent(player, tile)
+        game.events += PropertyPurchaseEvent(player, self)
 
-            return True
+        return True
 
-        return False
+    def on_land(self, game, player):
+        # FIXME: Prompt user to buy tile on land
 
-@Monopoly.setassociation(
-    (Components.SCRIPT, "events")
-)
-class ActionTile(Tile):
-    @staticmethod
-    def onpass(game, player, tile):
-        events = game[Components.DATA, tile]
-
-        if "pass" not in events:
-            return
-
-        for event in events["pass"]:
+        if not self.owner:
             pass
 
-    @staticmethod
-    def onland(game, player, tile):
-        events = game[Components.DATA, tile]
-
-        if "land" not in events:
-            return
-
-        for event in events["land"]:
-            pass
-
-@Monopoly.setassociation(
-    (Components.DATA, "table")
-)
+@associate("table")
 class ChestTile(Tile):
-    @staticmethod
-    def onland(game, player, tile):
-        table = game[Components.DATA, tile]
-        card = LootTable.draw(game, table)
+    def __init__(self, label, table, events={}):
+        super().__init__(label, events)
 
-        print(game.construct(card))
+        self.table = table
 
-@Monopoly.setassociation(
-    (Components.DATA, "industry")
-)
+    def on_land(self, game, player):
+        card = self.table.choice()
+        card = game.cards[card]
+
+        text = card.execute(game, player)
+
+        print(f"player {player!r} drew from {self.table!r}, card: {text!r}")
+
+
+@associate("industry")
 class CompanyTile(BuyableTile):
-    @staticmethod
-    def onland(game, player, tile):
+    def __init__(self, label, price, industry, events={}):
+        super().__init__(label, price, events=events)
+        self.industry = industry
+
+    def on_land(self, game, player):
+        # FIXME: Determine logic for company tiles
         pass
 
-@Monopoly.setassociation(
-    (Components.DATA, "group"),
-    (Components.LIST, "rent"),
-    (Components.DEVELOPMENT, "level", 0)
-)
+@associate("group", "rent")
 class PropertyTile(BuyableTile):
-    @staticmethod
-    def upgrade(game, player, tile):
-        if game[PropertyTile.owner][tile] != player:
+    def __init__(self, label, price, group, rent, level=0, events={}):
+        super().__init__(label, price, events=events)
+        self.group = group
+        self.rent = rent
+        self.level = level
+
+    def upgrade(self, game, player):
+        from .Event import PropertyUpgradeEvent
+        # FIXME: Check for monopoly before allowing upgrade
+
+        if self.owner != player:
             return False
 
-        price = game[PropertyTile.price][tile]["house"]
-        level = game[PropertyTile.level][tile]
-        maxLevel = len(game[PropertyTile.rent][tile]) - 1
+        maxLevel = len(self.rent) - 1
 
-
-        if type(price) == list:
-            raise NotImplementedError()
-
-        if level >= maxLevel:
+        if self.level >= maxLevel:
             return False
 
-        balance = game[Player.balance][player]
+        if player.balance < self.price:
+            return False
 
-        if balance >= price:
-            game[Components.BALANCE, player] -= price
-            game[Components.DEVELOPMENT, tile] += 1
+        player.balance -= self.price
+        self.level += 1
 
-            return True
+        game.events += PropertyUpgradeEvent(player, self)
 
-        return False
+        return True
 
-@Monopoly.setassociation(
-    (Components.TEXT, "name"),
-    (Components.DATA, "data"),
-    (Components.BALANCE, "balance"),
-    (Components.POSITION, "position")
-)
-class Player:
-    @staticmethod
-    def move(game, player, position=0, teleport=False):
-        from Monopoly import PlayerMoveEvent
+    def on_land(self, game, player: Player):
+        if not self.owner or self.owner == player:
+            return
 
-        initial = game[Player.position][player]
-        final = position % len(game.tiles)
-
-        game[Player.position][player] = final
-
-        game.events += PlayerMoveEvent(player, initial, final, teleport)
-
-    @staticmethod
-    def advance(game, player, delta=0, teleport=False):
-        position = game[Player.position][player] + delta
-
-        Player.move(game, player, position, teleport)
-
-    @staticmethod
-    def update_balance(game, player, balance=0):
-        game[Player.balance][player] = balance
+        rent = self.rent[self.level]
+        player.debit(game, self.owner, rent)

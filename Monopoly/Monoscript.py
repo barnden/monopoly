@@ -47,46 +47,58 @@ class Selector:
         return { type: attrs }
 
 class Monoscript:
-    keywords = ["balance", "move", "jail", "random", "log", "transaction"]
+    keywords = ["balance", "move", "jail", "random", "log", "transaction", "park"]
 
     def __init__(self, game):
-        self.game = game
+        from .Game import Game
+
+        self.game: Game = game
 
     @staticmethod
     def tokenize(string):
         return re.findall("([^\s]+[\[|\(].*?[\)|\]]|\$?[^\s]+|=)", string)
 
     def balance(self, args, context={}):
-        from Monopoly import Player
+        from .Types import Player
 
         mode, eid, amount = args[1:]
 
-        if eid not in self.game.players:
-            raise ValueError(f"[Monoscript]: balance invalid player entity id {eid!r}")
+        player: Player
+        if isinstance(eid, Player):
+            player = eid
+        elif eid not in self.game.players:
+            raise ValueError(f"[Monoscript]: balance received invalid player eid {eid}")
+        else:
+            player = self.game.players[eid]
 
-        eid = context["player"]
-        current = self.game[Player.balance][eid]
+        current = player.balance
 
         if amount.endswith("%"):
             percent = float(amount[:-1]) / 100.0
             delta = current * percent
         else:
-            delta = amount
+            delta = float(amount)
 
         if mode == "sub":
             delta *= -1
         elif mode != "add":
             raise ValueError(f"[Monoscript]: move unknown mode {mode!r}")
 
-        Player.update_balance(self.game, eid, current + int(delta))
+        player.balance += int(delta)
 
     def move(self, args, context={}):
-        from Monopoly import Player, Selector
+        from .Types import Player
+        from .Event import PlayerMoveEvent
 
         eid, mode, *rest = args[1:]
 
-        if eid not in self.game.players:
+        player: Player
+        if isinstance(eid, Player):
+            player = eid
+        elif eid not in self.game.players:
             raise ValueError(f"[Monoscript]: move invalid player entity id {eid!r}")
+        else:
+            player = self.game.players[eid]
 
         instant = False
         if mode == "instant":
@@ -95,6 +107,8 @@ class Monoscript:
 
         match mode:
             case "to":
+                from .Types import Tile
+
                 if not rest:
                     raise ValueError(f"[Monoscript]: (too few args) expected tile entity id")
 
@@ -104,12 +118,12 @@ class Monoscript:
                     selector = Selector.parse(tile)
                     tile = self.game.select(selector)[0]
 
-                if not isinstance(tile, int):
+                if not isinstance(tile, Tile):
                     raise TypeError(f"[Monoscript]: (invalid type) invalid tile entity {tile!r}")
-                elif tile not in self.game.tiles:
-                    raise ValueError(f"[Monoscript]: (invalid tile) entity {tile!r} does not correspond to tile")
 
-                Player.move(self.game, eid, self.game.tiles.index(tile), instant)
+                initial = player.position
+                player.position = self.game.tiles.index(tile)
+                self.game.events += PlayerMoveEvent(player, initial, player.position, instant)
 
             case "near" | "next":
                 # Near goes to nearest tile forward or backward, next goes to the nearest forward
@@ -119,26 +133,45 @@ class Monoscript:
 
                 selectors = ChainMap(*[Selector.parse(token) for token in rest])
 
-                current = self.game[Player.position][eid]
-                forward = mode == "next"
-
-                tile = self.game.nearest(selectors, current, forward)
+                forward = (mode == "next")
+                tile = self.game.nearest(selectors, player.position, forward)
 
                 if tile:
                     position, _ = tile
-                    Player.move(self.game, eid, position, instant)
+                    initial = player.position
+                    player.position = position
+                    self.game.events += PlayerMoveEvent(player, initial, player.position, instant)
 
             case _:
                 raise ValueError(f"[Monoscript]: move unknown mode {mode!r}")
+            
+    def park(self, args, context={}):
+        from .Types import Player
+
+        eid = args[1]
+        player: Player
+        if isinstance(eid, Player):
+            player = eid
+        elif eid not in self.game.players:
+            raise ValueError(f"[Monoscript]: move invalid player entity id {eid!r}")
+        else:
+            player = self.game.players[eid]
+
+        self.game.park(player)
 
     def jail(self, args, context={}):
-        from Monopoly import Player
+        from .Types import Player
 
-        eid = int(args[1])
-        if eid not in self.game.players:
-            raise ValueError(f"[Monoscript]: (invalid eid) {eid!r} does not represent player")
+        eid = args[1]
+        player: Player
+        if isinstance(eid, Player):
+            player = eid
+        elif eid not in self.game.players:
+            raise ValueError(f"[Monoscript]: move invalid player entity id {eid!r}")
+        else:
+            player = self.game.players[eid]
 
-        self.game[Player.data][eid]["jailed"] = True
+        self.game.jail(player)
 
     def random(self, args, context={}):
         selectors = {}
@@ -161,7 +194,7 @@ class Monoscript:
         return True
 
     def bindTokens(self, tokens, context):
-        from Monopoly import Game
+        from .Game import Game
 
         for i, token in enumerate(tokens):
             if not token.startswith('$'):
@@ -181,11 +214,9 @@ class Monoscript:
                     continue
 
                 field, *path = accessor.split(".")
-                mask = self.game.ecs.entities[value].mask
-                cls = self.game.ecs.masks[mask]
-                tid = getattr(cls, field, None)
-
-                data = self.game[tid][value]
+                if type(value) == str:
+                    value = self.game.entities[value]
+                data = getattr(value, field, None)
                 data = str(Game.access(path, data, data))
 
                 tokens[i] = data

@@ -1,7 +1,8 @@
 import functools
+from .Types import *
 
 class Event:
-    def __init__(self, message):
+    def __init__(self, message: str):
         self.message = message
 
     def __str__(self):
@@ -15,28 +16,48 @@ class Event:
         return f"{self.__class__.__name__}({fields})"
 
 class PlayerEvent(Event):
-    def __init__(self, player):
+    def __init__(self, player: Player):
         self.player = player
 
 class PlayerMoveEvent(PlayerEvent):
-    def __init__(self, player, initial, final, teleport=False):
+    def __init__(self, player: Player, initial: int, final: int, teleport: bool=False):
         super().__init__(player)
         self.initial = initial
         self.final = final
         self.teleport = teleport
 
 class PropertyPurchaseEvent(PlayerEvent):
-    def __init__(self, player, tile):
+    def __init__(self, player: Player, tile: BuyableTile):
         super().__init__(player)
         self.tile = tile
 
-class TurnEnd(Event):
-    def __init__(self, player):
-        self.player = player
+class PropertyUpgradeEvent(PlayerEvent):
+    def __init__(self, player: Player, tile: PropertyTile):
+        super().__init__(player)
+        self.tile = tile
 
-class TurnStart(Event):
-    def __init__(self, player):
-        self.player = player
+class PlayerBalanceUpdated(PlayerEvent):
+    def __init__(self, player: Player, delta: int, creditor: Player=None):
+        super().__init__(player)
+
+        self.delta = delta
+        self.creditor = creditor
+
+class PlayerJailedEvent(PlayerEvent):
+    def __init__(self, player: Player):
+        super().__init__(player)
+
+class PlayerParkedEvent(PlayerEvent):
+    def __init__(self, player: Player):
+        super().__init__(player)
+
+class TurnEnd(PlayerEvent):
+    def __init__(self, player: Player):
+        super().__init__(player)
+
+class TurnStart(PlayerEvent):
+    def __init__(self, player: Player):
+        super().__init__(player)
 
 class EventDispatcher:
     def __init__(self):
@@ -62,7 +83,7 @@ class EventDispatcher:
     def __ior__(self, args):
         if len(args) != 2:
             raise ValueError(f"[EventDispatcher] event listener expected two arguments (Events, handler), got {len(args)} instead.")
-        
+
         self.add_handler(*args)
 
         return self

@@ -5,8 +5,22 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Generic Monopoly</title>
+
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: hsl(240, 12%, 8%);
+            color: hsl(222, 19%, 89%);
+        }
+    </style>
 </head>
 <body>
-    <h1>Hello, World!</h1>
+    <form action="/api/v1/game/create/wordwide" method="post">
+        <input type="submit" value="Create Lobby">
+    </form>
 </body>
 </html>
